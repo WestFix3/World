@@ -13,6 +13,12 @@ clock = pygame.time.Clock()
 height = screen.get_height()
 width = screen.get_width()
 
+isNight = False
+dayTime = 0
+shade = 0
+nightSurface = pygame.Surface((width, height))
+nightSurface.fill((0, 0, 0))
+
 TILE_SIZE = 32
 CUT_SIZE = 16
 
@@ -597,7 +603,6 @@ player = Player(ArcherSheets)
 player.generate(ScreenOffSetX, ScreenOffSetY)
 
 running = True
-
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -619,8 +624,18 @@ while running:
 
     player.draw()
     drawBar()
+    
+    if isNight:
+        nightSurface.set_alpha(shade)
+        screen.blit(nightSurface, (0, 0))
+        if shade <= 150:
+            shade += 150 / (30 * 60)
+    
     pygame.display.flip()
+    dayTime += clock.tick(60) / 1000
 
-    clock.tick(60)
+    if dayTime >= 150:
+        isNight = not isNight
+        dayTime = 0
 
 pygame.quit()
