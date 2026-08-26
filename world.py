@@ -97,14 +97,22 @@ def drawBackground():
 
             if isinstance(worldMap[y][x], Stone):
                 worldMap[y][x].draw()
-            elif isinstance(worldMap[y][x], Water):
+                
+            if isinstance(worldMap[y][x], Water):
                 worldMap[y][x].update()
                 worldMap[y][x].draw()
-            elif isinstance(worldMap[y][x], CampFire):
+                
+            if isinstance(worldMap[y][x], CampFire):
                 if worldMap[y][x].justPlaced:
                     worldMap[y][x].upgradeDraw()
                 else:
                     worldMap[y][x].update()
+                    worldMap[y][x].draw()
+                    
+            if isinstance(worldMap[y][x], Bridge):
+                if worldMap[y][x].justPlaced:
+                    worldMap[y][x].upgradeDraw()
+                else:
                     worldMap[y][x].draw()
 
 def drawBar():
@@ -113,6 +121,10 @@ def drawBar():
     text = small_font.render("Place with (1)", True, (255, 255, 255))
     screen.blit(text, (0, 0))
     screen.blit(campFireTileSheet[0], (90, 0))
+
+    text = small_font.render("Place with (2)", True, (255, 255, 255))
+    screen.blit(text, (120, 0))
+    screen.blit(BrideTile, (210, 0))
 
     screen.blit(woodStuffTile,(width-120, 4))
     text = font.render(str(player.inventory["wood"]), True, (255, 255, 255))
@@ -147,6 +159,35 @@ class Animation:
 
     def get_frame(self, frames):
         return (self.frame // self.animation_speed) % len(frames)
+
+class Build:
+    def __init__(self, material, countNeed, justPlaced):
+        self.material = material # wood OR stone
+        self.count = 0
+        self.countNeed = countNeed
+        self.justPlaced = justPlaced
+
+    def upgradeDraw(self):
+        if self.count == self.countNeed:
+            self.justPlaced = False
+            return
+
+        image = pygame.transform.scale(GrassTiles[0],(TILE_SIZE, TILE_SIZE))
+        screen.blit(image, self.rect)
+
+        if isinstance(self.tileSheet, list):
+            image = pygame.transform.scale(self.tileSheet[0],(TILE_SIZE, TILE_SIZE))
+            screen.blit(image, self.rect)
+        else:
+            image = pygame.transform.scale(self.tileSheet,(TILE_SIZE, TILE_SIZE))
+            screen.blit(image, self.rect)
+        
+        image = pygame.transform.scale(buildTile,(TILE_SIZE, TILE_SIZE))
+        screen.blit(image, self.rect)
+
+        small_font = pygame.font.Font(None, 20)
+        text = small_font.render(self.material.capitalize() + ": " + str(self.count) + "/" + str(self.countNeed), True, (255, 255, 255))
+        screen.blit(text, (self.rect[0]-10, self.rect[1]-20))
 
 class Player(WorldObject, Animation):
     def __init__(self, tileSheet):
@@ -207,34 +248,45 @@ class Player(WorldObject, Animation):
                 if isinstance(side, Tree):
                     side.collide = True
                     
-                if isinstance(side, CampFire):
-                    if self.inventory["wood"] > 0:
-                        side.log += 1
-                        self.inventory["wood"] -= 1
+                if isinstance(side, CampFire) and side.justPlaced:
+                    if self.inventory[side.material] > 0:
+                        side.count += 1
+                        self.inventory[side.material] -= 1
+
+                if isinstance(side, Bridge) and side.justPlaced:
+                    if self.inventory[side.material] > 0:
+                        side.count += 1
+                        self.inventory[side.material] -= 1
 
             if event.key == pygame.K_x: # Felvenni valamit pl fa vagy kő (kiütött)
                 if isinstance(side, Tree) and side.tileSheet == woodStuffTile:
                     side.destroy()
                     player.inventory["wood"] += 1
-            
-            if event.key == pygame.K_1: # Take obj (Campfire, később ház stb, de az már más számon!)
-                x = self.rect.x//TILE_SIZE
-                y = self.rect.y//TILE_SIZE
 
-                if self.direction == 0:
-                    y -= 1
-                if self.direction == 1:
-                    y += 1
-                if self.direction == 2:
-                    x -= 1
-                if self.direction == 3:
-                    x += 1
-        
+            x = (self.rect.centerx - ScreenOffSetX) // TILE_SIZE
+            y = (self.rect.centery - ScreenOffSetY) // TILE_SIZE
+
+            if self.direction == 0:
+                y -= 1
+            if self.direction == 1:
+                y += 1
+            if self.direction == 2:
+                x -= 1
+            if self.direction == 3:
+                x += 1
+            if event.key == pygame.K_1: # Take obj (Campfire, később ház stb, de az már más számon!)
                 if isinstance(worldMap[y][x], Grass):
                     worldMap[y][x] = CampFire(campFireTileSheet, x, y, ScreenOffSetX, ScreenOffSetY)
                 
                 elif isinstance(worldMap[y][x], CampFire):
                     worldMap[y][x] = Grass(random.choice(GrassTiles), x, y, ScreenOffSetX, ScreenOffSetY)
+
+            if event.key == pygame.K_2:
+                if isinstance(worldMap[y][x], Water) and worldMap[y][x].tileSheet is not WaterCornerTileSet:
+                    worldMap[y][x] = Bridge(BrideTile, x, y, ScreenOffSetX, ScreenOffSetY)
+                
+                elif isinstance(worldMap[y][x], Bridge):
+                    worldMap[y][x] = Water(WaterHorizontalFlowTileSet, x, y, 1, ScreenOffSetX, ScreenOffSetY)
 
             if event.key == pygame.K_q: # Támadás
                 #Use sword later or bow
@@ -279,6 +331,10 @@ class Player(WorldObject, Animation):
                 return worldMap[y][x]
 
         if isinstance(worldMap[y][x], Water):
+            if rectCopy.colliderect(worldMap[y][x].rect):
+                return worldMap[y][x]
+
+        if isinstance(worldMap[y][x], Bridge) and worldMap[y][x].justPlaced:
             if rectCopy.colliderect(worldMap[y][x].rect):
                 return worldMap[y][x]
 
@@ -409,51 +465,32 @@ class Tree(WorldObject):
     def destroy(self):
         self.tileSheet = CuttedTreeTile
 
-class CampFire(WorldObject, Animation):
+class CampFire(WorldObject, Animation, Build):
     # Ha jó helyre vitte és lerakja, akkor pozíció alapján lerakjuk
     def __init__(self, tileSheet, posX, posY, offset_x=0, offset_y=0):
         WorldObject.__init__(self, tileSheet, posX, posY, offset_x, offset_y)
         Animation.__init__(self)
-        self.log = 0
-        self.logNeed = 5
-        self.justPlaced = True
-
-    def upgradeDraw(self):
-        if self.log == self.logNeed:
-            self.justPlaced = False
-            return
-
-        image = pygame.transform.scale(GrassTiles[0],(TILE_SIZE, TILE_SIZE))
-        screen.blit(image, self.rect)
-        
-        image = pygame.transform.scale(self.tileSheet[0],(TILE_SIZE, TILE_SIZE))
-        screen.blit(image, self.rect)
-        
-        image = pygame.transform.scale(buildTile[0],(TILE_SIZE, TILE_SIZE))
-        screen.blit(image, self.rect)
-
-        small_font = pygame.font.Font(None, 20)
-        text = small_font.render("Log: " + str(self.log) + "/" + str(self.logNeed), True, (255, 255, 255))
-        screen.blit(text, (self.rect[0]-10, self.rect[1]-20))
+        Build.__init__(self, "wood", 5, True)
 
     def draw(self):
         image = pygame.transform.scale(GrassTiles[0],(TILE_SIZE, TILE_SIZE))
         screen.blit(image, self.rect)
         current_frame = self.get_frame(self.tileSheet)
 
-        image = pygame.transform.scale(
-            self.tileSheet[current_frame],
-            (TILE_SIZE, TILE_SIZE)
-        )
-
+        image = pygame.transform.scale(self.tileSheet[current_frame],(TILE_SIZE, TILE_SIZE))
         screen.blit(image, self.rect)
 
-class Bridge(WorldObject):
+class Bridge(WorldObject, Build):
     def __init__(self, tileSheet, posX, posY, offset_x=0, offset_y=0):
-        super().__init__(tileSheet, posX, posY, offset_x, offset_y)
+        WorldObject.__init__(self, tileSheet, posX, posY, offset_x, offset_y)
+        Build.__init__(self, "wood", 5, True)
 
     def draw(self):
-        pass
+        image = pygame.transform.scale(WaterHorizontalFlowTileSet[0][0],(TILE_SIZE, TILE_SIZE))
+        screen.blit(image, self.rect)
+
+        image = pygame.transform.scale(self.tileSheet,(TILE_SIZE, TILE_SIZE))
+        screen.blit(image, self.rect)
 
 class Tent(WorldObject):
     def __init__(self, tileSheet, posX, posY, offset_x=0, offset_y=0):
@@ -523,7 +560,7 @@ Water4 = [Fbal, Fjobb, Abal, Ajobb]
 
 WaterCornerTileSet = [Water1, Water2, Water3, Water4]
 
-BrideTile = cutScene((176, 496), (1,1))
+BrideTile = cutScene((176, 496), (1,1))[0]
 TentTile = cutScene((64, 416), (1,1))[0]
 
 GrassTiles = cutScene((0,0), (3,3))
@@ -531,8 +568,8 @@ CircleTreeTiles = cutScene((0,112), (3,3))
 RectTreeTiles = cutScene((48, 112), (3,3))
 RowTreeTiles = cutScene((96, 112), (2,3))
 
-buildTile = cutScene((336, 64), (1,1))
-destroyTile = cutScene((352, 64), (1,1))
+buildTile = cutScene((336, 64), (1,1))[0]
+destroyTile = cutScene((352, 64), (1,1))[0]
 
 TreeTile = cutScene((128, 112), (1,1))[0]
 CuttedTreeTile = cutScene((16, 432), (1,1))[0]
