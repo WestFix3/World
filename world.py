@@ -93,9 +93,9 @@ def checkTheCutScene(lista, rowCol):
             image = pygame.transform.scale(lista[y * rowCol[0] + x],(TILE_SIZE * scale, TILE_SIZE * scale))
             screen.blit(image,(x * TILE_SIZE * scale, y * TILE_SIZE * scale))
 
-def drawBackground():
-    for y in range(height // TILE_SIZE):
-        for x in range(width // TILE_SIZE):
+def drawBackground(startX = 0, startY = 0, height = height // TILE_SIZE, width = width // TILE_SIZE):
+    for y in range(startY, height):
+        for x in range(startX, width):
             if isinstance(worldMap[y][x], Grass):
                 worldMap[y][x].draw()
 
@@ -384,7 +384,7 @@ class Player(WorldObject, Animation):
             if rectCopy.colliderect(worldMap[y][x].rect):
                 return worldMap[y][x]
 
-        if isinstance(worldMap[y][x], Tent) and worldMap[y][x].justPlaced:
+        if isinstance(worldMap[y][x], Tent):
             if rectCopy.colliderect(worldMap[y][x].rect):
                 return worldMap[y][x]
 
@@ -525,6 +525,14 @@ class CampFire(WorldObject, Animation, Build):
         map_x = (self.rect.x - ScreenOffSetX) // TILE_SIZE
         map_y = (self.rect.y - ScreenOffSetY) // TILE_SIZE
 
+        startX = max(0, map_x - 2)
+        startY = max(0, map_y - 2)
+
+        endX = min(len(worldMap[0]), map_x + 3)
+        endY = min(len(worldMap), map_y + 3)
+
+        drawBackground(startX, startY, endY, endX)
+
         for dy in range(-2, 3):
             for dx in range(-2, 3):
                 mx = map_x + dx
@@ -532,8 +540,6 @@ class CampFire(WorldObject, Animation, Build):
                 if 0 <= my < len(worldMap) and 0 <= mx < len(worldMap[0]):
                     tile = worldMap[my][mx]
                     if tile is not None and not isinstance(tile, CampFire):
-                        tile.draw()
-
                         dark = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
 
                         if abs(dx) == 2 or abs(dy) == 2:
@@ -578,10 +584,11 @@ class Tent(WorldObject, Build):
         screen.blit(image, self.rect)
 
     def rest(self):
-        global isNight, shade, dayTime
-        isNight = True
-        shade = 1
-        dayTime = 150
+        if not self.justPlaced:
+            global isNight, shade, dayTime
+            isNight = True
+            shade = 1
+            dayTime = 150
 
 tilesheet = pygame.image.load("punyworld-overworld-tileset.png").convert_alpha()
 ArcherTileSheet = pygame.image.load("Archer-Green.png").convert_alpha()
