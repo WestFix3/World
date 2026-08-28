@@ -155,6 +155,8 @@ def drawDownBar():
     screen.blit(text, (130, height-15))
     text = small_font.render("Q (Attack)", True, (255, 255, 255))
     screen.blit(text, (240, height-15))
+    text = small_font.render("R (Sleep)", True, (255, 255, 255))
+    screen.blit(text, (310, height-15))
 
     text = small_font.render("HEALTH: ", True, (255, 255, 255))
     screen.blit(text, (width-170, height-15))
@@ -296,6 +298,10 @@ class Player(WorldObject, Animation):
                     side.destroy()
                     player.inventory["wood"] += 1
 
+            if event.key == pygame.K_q: # Támadás
+                #Use sword later or bow
+                pass
+
             x = (self.rect.centerx - ScreenOffSetX) // TILE_SIZE
             y = (self.rect.centery - ScreenOffSetY) // TILE_SIZE
 
@@ -326,11 +332,11 @@ class Player(WorldObject, Animation):
                     worldMap[y][x] = Tent(TentTile, x, y, ScreenOffSetX, ScreenOffSetY)
                 
                 elif isinstance(worldMap[y][x], Tent):
-                    worldMap[y][x] = Tent(random.choice(GrassTiles), x, y, 1, ScreenOffSetX, ScreenOffSetY)
+                    worldMap[y][x] = Grass(random.choice(GrassTiles), x, y, ScreenOffSetX, ScreenOffSetY)
 
-            if event.key == pygame.K_q: # Támadás
-                #Use sword later or bow
-                pass
+            if event.key == pygame.K_r:
+                if isinstance(worldMap[y][x], Tent) and isNight:
+                    worldMap[y][x].rest()
 
     def collide(self, direction):
         rectCopy = self.rect.copy()
@@ -570,6 +576,12 @@ class Tent(WorldObject, Build):
 
         image = pygame.transform.scale(self.tileSheet,(TILE_SIZE, TILE_SIZE))
         screen.blit(image, self.rect)
+
+    def rest(self):
+        global isNight, shade, dayTime
+        isNight = True
+        shade = 1
+        dayTime = 150
 
 tilesheet = pygame.image.load("punyworld-overworld-tileset.png").convert_alpha()
 ArcherTileSheet = pygame.image.load("Archer-Green.png").convert_alpha()
