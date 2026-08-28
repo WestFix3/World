@@ -121,7 +121,7 @@ def drawBackground():
                 else:
                     worldMap[y][x].draw()
 
-def drawBar():
+def drawUpBar():
     small_font = pygame.font.Font(None, 20)
 
     text = small_font.render("Place with (1)", True, (255, 255, 255))
@@ -665,12 +665,12 @@ while running:
             screen.blit(nightSurface, (0, 0))
 
             for row in worldMap:
-            for tile in row:
-                if isinstance(tile, CampFire) and not tile.justPlaced:
-                    tile.illuminate()
+                for tile in row:
+                    if isinstance(tile, CampFire) and not tile.justPlaced:
+                        tile.illuminate()
 
     player.draw()
-    drawBar()
+    drawUpBar()
     pygame.display.flip()
     dayTime += clock.tick(60) / 1000
 
