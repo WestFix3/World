@@ -122,14 +122,24 @@ def drawBackground():
                 else:
                     worldMap[y][x].draw()
 
+            if isinstance(worldMap[y][x], Tent):
+                if worldMap[y][x].justPlaced:
+                    worldMap[y][x].upgradeDraw()
+                else:
+                    worldMap[y][x].draw()
+
 def drawUpBar():
     text = small_font.render("Place with (1)", True, (255, 255, 255))
     screen.blit(text, (10, 0))
     screen.blit(campFireTileSheet[0], (100, 0))
 
     text = small_font.render("Place with (2)", True, (255, 255, 255))
-    screen.blit(text, (120, 0))
-    screen.blit(BrideTile, (210, 0))
+    screen.blit(text, (130, 0))
+    screen.blit(BrideTile, (220, 0))
+
+    text = small_font.render("Place with (3)", True, (255, 255, 255))
+    screen.blit(text, (250, 0))
+    screen.blit(TentTile, (340, 0))
 
     screen.blit(woodStuffTile,(width-120, 4))
     text = font.render(str(player.inventory["wood"]), True, (255, 255, 255))
@@ -276,6 +286,11 @@ class Player(WorldObject, Animation):
                         side.count += 1
                         self.inventory[side.material] -= 1
 
+                if isinstance(side, Tent) and side.justPlaced:
+                    if self.inventory[side.material] > 0:
+                        side.count += 1
+                        self.inventory[side.material] -= 1
+
             if event.key == pygame.K_x: # Felvenni valamit pl fa vagy kő (kiütött)
                 if isinstance(side, Tree) and side.tileSheet == woodStuffTile:
                     side.destroy()
@@ -305,6 +320,13 @@ class Player(WorldObject, Animation):
                 
                 elif isinstance(worldMap[y][x], Bridge):
                     worldMap[y][x] = Water(WaterHorizontalFlowTileSet, x, y, 1, ScreenOffSetX, ScreenOffSetY)
+
+            if event.key == pygame.K_3:
+                if isinstance(worldMap[y][x], Grass):
+                    worldMap[y][x] = Tent(TentTile, x, y, ScreenOffSetX, ScreenOffSetY)
+                
+                elif isinstance(worldMap[y][x], Tent):
+                    worldMap[y][x] = Tent(random.choice(GrassTiles), x, y, 1, ScreenOffSetX, ScreenOffSetY)
 
             if event.key == pygame.K_q: # Támadás
                 #Use sword later or bow
@@ -353,6 +375,10 @@ class Player(WorldObject, Animation):
                 return worldMap[y][x]
 
         if isinstance(worldMap[y][x], Bridge) and worldMap[y][x].justPlaced:
+            if rectCopy.colliderect(worldMap[y][x].rect):
+                return worldMap[y][x]
+
+        if isinstance(worldMap[y][x], Tent) and worldMap[y][x].justPlaced:
             if rectCopy.colliderect(worldMap[y][x].rect):
                 return worldMap[y][x]
 
@@ -533,12 +559,17 @@ class Bridge(WorldObject, Build):
         image = pygame.transform.scale(self.tileSheet,(TILE_SIZE, TILE_SIZE))
         screen.blit(image, self.rect)
 
-class Tent(WorldObject):
+class Tent(WorldObject, Build):
     def __init__(self, tileSheet, posX, posY, offset_x=0, offset_y=0):
-            super().__init__(tileSheet, posX, posY, offset_x, offset_y)
+        WorldObject.__init__(self, tileSheet, posX, posY, offset_x, offset_y)
+        Build.__init__(self, "wood", 5, True)
 
     def draw(self):
-        pass
+        image = pygame.transform.scale(GrassTiles[0],(TILE_SIZE, TILE_SIZE))
+        screen.blit(image, self.rect)
+
+        image = pygame.transform.scale(self.tileSheet,(TILE_SIZE, TILE_SIZE))
+        screen.blit(image, self.rect)
 
 tilesheet = pygame.image.load("punyworld-overworld-tileset.png").convert_alpha()
 ArcherTileSheet = pygame.image.load("Archer-Green.png").convert_alpha()
