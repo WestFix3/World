@@ -472,11 +472,34 @@ class Tree(WorldObject):
         self.tileSheet = CuttedTreeTile
 
 class CampFire(WorldObject, Animation, Build):
-    # Ha jó helyre vitte és lerakja, akkor pozíció alapján lerakjuk
     def __init__(self, tileSheet, posX, posY, offset_x=0, offset_y=0):
         WorldObject.__init__(self, tileSheet, posX, posY, offset_x, offset_y)
         Animation.__init__(self)
         Build.__init__(self, "wood", 5, True)
+
+    def illuminate(self):
+        map_x = (self.rect.x - ScreenOffSetX) // TILE_SIZE
+        map_y = (self.rect.y - ScreenOffSetY) // TILE_SIZE
+
+        for dy in range(-2, 3):
+            for dx in range(-2, 3):
+                mx = map_x + dx
+                my = map_y + dy
+                if 0 <= my < len(worldMap) and 0 <= mx < len(worldMap[0]):
+                    tile = worldMap[my][mx]
+                    if tile is not None and not isinstance(tile, CampFire):
+                        tile.draw()
+
+                        dark = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
+
+                        if abs(dx) == 2 or abs(dy) == 2:
+                            dark.fill((0, 0, 0, int(shade * 0.65)))
+                        else:
+                            dark.fill((0, 0, 0, int(shade * 0.50)))
+
+                        screen.blit(dark, tile.rect)
+
+        self.draw()
 
     def draw(self):
         image = pygame.transform.scale(GrassTiles[0],(TILE_SIZE, TILE_SIZE))
@@ -622,15 +645,32 @@ while running:
     if player.moving != -1 or player.isUseAbility != -1:
         player.update()
 
+    if isNight:
+        if shade < 150:
+            shade += 150 / (30 * 60)
+
+        nightSurface.set_alpha(int(shade))
+        screen.blit(nightSurface, (0, 0))
+
+        for row in worldMap:
+            for tile in row:
+                if isinstance(tile, CampFire) and not tile.justPlaced:
+                    tile.illuminate()
+
+    else:
+        if shade > 0:
+            shade -= 150 / (30 * 60)
+
+            nightSurface.set_alpha(int(shade))
+            screen.blit(nightSurface, (0, 0))
+
+            for row in worldMap:
+            for tile in row:
+                if isinstance(tile, CampFire) and not tile.justPlaced:
+                    tile.illuminate()
+
     player.draw()
     drawBar()
-    
-    if isNight:
-        nightSurface.set_alpha(shade)
-        screen.blit(nightSurface, (0, 0))
-        if shade <= 150:
-            shade += 150 / (30 * 60)
-    
     pygame.display.flip()
     dayTime += clock.tick(60) / 1000
 
