@@ -18,6 +18,7 @@ dayTime = 0
 shade = 0
 nightSurface = pygame.Surface((width, height))
 nightSurface.fill((0, 0, 0))
+small_font = pygame.font.Font(None, 20)
 
 TILE_SIZE = 32
 CUT_SIZE = 16
@@ -122,11 +123,9 @@ def drawBackground():
                     worldMap[y][x].draw()
 
 def drawUpBar():
-    small_font = pygame.font.Font(None, 20)
-
     text = small_font.render("Place with (1)", True, (255, 255, 255))
-    screen.blit(text, (0, 0))
-    screen.blit(campFireTileSheet[0], (90, 0))
+    screen.blit(text, (10, 0))
+    screen.blit(campFireTileSheet[0], (100, 0))
 
     text = small_font.render("Place with (2)", True, (255, 255, 255))
     screen.blit(text, (120, 0))
@@ -138,6 +137,19 @@ def drawUpBar():
     screen.blit(stoneStuffTile,(width-60, 4))
     text = font.render(str(player.inventory["stone"]), True, (255, 255, 255))
     screen.blit(text, (width-40, 0))
+
+def drawDownBar():
+    text = small_font.render("E (Get stuff/Build)", True, (255, 255, 255))
+    screen.blit(text, (10, height-15))
+    text = small_font.render("X (Pick up item)", True, (255, 255, 255))
+    screen.blit(text, (130, height-15))
+    text = small_font.render("Q (Attack)", True, (255, 255, 255))
+    screen.blit(text, (240, height-15))
+
+    text = small_font.render("HEALTH: ", True, (255, 255, 255))
+    screen.blit(text, (width-170, height-15))
+    for i in range(width-105, width-5, 20):
+        screen.blit(heartTile, (i, height-15))
 
 class WorldObject:
     def __init__(self, tileSheet, posX=None, posY=None, offset_x=0, offset_y=0):
@@ -532,6 +544,13 @@ tilesheet = pygame.image.load("punyworld-overworld-tileset.png").convert_alpha()
 ArcherTileSheet = pygame.image.load("Archer-Green.png").convert_alpha()
 StuffTileSheet = pygame.image.load("Stuff.png").convert_alpha()
 rawCampFire = pygame.image.load("campFire.png").convert_alpha()
+heartTileSheet = pygame.image.load("heart.png").convert_alpha()
+
+heartTile = heartTileSheet.subsurface(pygame.Rect(0, 0, 16, 16))
+heartTile = pygame.transform.scale(heartTile, (16, 16))
+
+breakedHeartTile = heartTileSheet.subsurface(pygame.Rect(16, 0, 16, 16))
+breakedHeartTile = pygame.transform.scale(breakedHeartTile, (16, 16))
 
 woodStuffTile = StuffTileSheet.subsurface(pygame.Rect(5, 5, 400, 280))
 woodStuffTile = pygame.transform.scale(woodStuffTile, (16, 16))
@@ -638,7 +657,8 @@ while running:
 
     screen.fill((0, 128, 0))
 
-    #checkTheCutScene(BrideTile, (1,1))
+    #screen.blit(breakedHeartTile, (0, 0))
+    #checkTheCutScene(kepNeve, (1,1))
     drawBackground()
     player.move()
 
@@ -671,6 +691,7 @@ while running:
 
     player.draw()
     drawUpBar()
+    drawDownBar()
     pygame.display.flip()
     dayTime += clock.tick(60) / 1000
 
