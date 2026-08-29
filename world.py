@@ -53,7 +53,7 @@ def generateMap():
         for x in range(width // TILE_SIZE):
             if not isinstance(worldMap[y][x], Water):
                 rnd = random.random()
-                if rnd < 0.001:
+                if rnd < 0.009:
                     worldMap[y][x] = Stone(StoneTile, x, y, ScreenOffSetX, ScreenOffSetY)
                 elif rnd < 0.10:
                     worldMap[y][x] = Tree(TreeTile, x, y, ScreenOffSetX, ScreenOffSetY)
@@ -277,6 +277,9 @@ class Player(WorldObject, Animation):
                 self.frame = 0
                 if isinstance(side, Tree):
                     side.collide = True
+
+                if isinstance(side, Stone):
+                    side.collide = True
                     
                 if isinstance(side, CampFire) and side.justPlaced:
                     if self.inventory[side.material] > 0:
@@ -298,16 +301,15 @@ class Player(WorldObject, Animation):
                     side.destroy()
                     player.inventory["wood"] += 1
 
+                if isinstance(side, Stone) and side.tileSheet == stoneStuffTile:
+                    side.destroy()
+                    player.inventory["stone"] += 1
+
             if event.key == pygame.K_q: # Támadás
                 #Use sword later or bow
                 pass
 
-            rotation = {
-                0: 0,
-                1: 180,
-                2: 90,
-                3: 270
-            }
+            rotation = {0: 0,1: 180,2: 90,3: 270}
 
             x = (self.rect.centerx - ScreenOffSetX) // TILE_SIZE
             y = (self.rect.centery - ScreenOffSetY) // TILE_SIZE
@@ -457,18 +459,51 @@ class Water(WorldObject, Animation):
 class Stone(WorldObject):
     def __init__(self, tileSheet, posX, posY, offset_x=0, offset_y=0):
         super().__init__(tileSheet, posX, posY, offset_x, offset_y)
+        self.health = 5
+        self.shake = 0
+        self.collide = False
+        self.destroyed = False
 
     def drop(self):
-        pass
+        self.destroyed = True
+        self.tileSheet = stoneStuffTile
 
     def draw(self):
         image = pygame.transform.scale(GrassTiles[0],(TILE_SIZE, TILE_SIZE))
         screen.blit(image, self.rect)
-        image = pygame.transform.scale(self.tileSheet,(TILE_SIZE, TILE_SIZE))
-        screen.blit(image, self.rect)
+        if self.destroyed:
+            image = pygame.transform.scale(self.tileSheet,(TILE_SIZE, TILE_SIZE))
+            screen.blit(image, self.rect)
+            return
+        if self.health <= 0:
+            self.drop()
+            self.destroyed = True
+            #self.destroy()
+            return
 
+        if self.collide:
+            self.health -= 1
+            self.collide = False
+            self.shake = 10
+
+        top = self.tileSheet.subsurface(pygame.Rect(0, 0, 16, 10))
+        bottom = self.tileSheet.subsurface(pygame.Rect(0, 10, 16, 6))
+
+        top = pygame.transform.scale(top, (TILE_SIZE, TILE_SIZE // 2))
+        bottom = pygame.transform.scale(bottom, (TILE_SIZE, TILE_SIZE // 2))
+
+        if self.shake > 0:
+            offset = 1 if self.shake % 2 == 0 else -1
+            self.shake -= 1
+        else:
+            offset = 0
+
+        screen.blit(bottom, (self.rect[0],self.rect[1] + TILE_SIZE // 2))
+
+        screen.blit(top, (self.rect[0] + offset,self.rect[1]))
+        
     def destroy(self):
-        pass
+        self.tileSheet = CuttedStoneTile
         
 class Tree(WorldObject):
     #Később a rönköt is kilehessen ütni + kell DROP IS!
