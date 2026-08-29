@@ -163,6 +163,33 @@ def drawDownBar():
     for i in range(width-105, width-5, 20):
         screen.blit(heartTile, (i, height-15))
 
+def updateObjects():
+    for row in worldMap:
+        for tile in row:
+            if isinstance(tile, Tree) and tile.CutDownTree:
+                tile.update()
+
+            if isinstance(tile, Stone) and tile.CutDownStone:
+                tile.update()
+
+def updateLighting(shade, isNight, screen, nightSurface, worldMap):
+    if isNight:
+        if shade < 150:
+            shade += 150 / (30 * 60)
+    else:
+        if shade > 0:
+            shade -= 150 / (30 * 60)
+
+    nightSurface.set_alpha(int(shade))
+    screen.blit(nightSurface, (0, 0))
+
+    for row in worldMap:
+        for tile in row:
+            if isinstance(tile, CampFire) and not tile.justPlaced:
+                tile.illuminate()
+
+    return shade
+
 class WorldObject:
     def __init__(self, tileSheet, posX=None, posY=None, offset_x=0, offset_y=0):
         self.tileSheet = tileSheet
@@ -275,11 +302,12 @@ class Player(WorldObject, Animation):
             if event.key == pygame.K_e:
                 self.isUseAbility = 0
                 self.frame = 0
-                if isinstance(side, Tree):
-                    side.collide = True
-
-                if isinstance(side, Stone):
-                    side.collide = True
+                if isinstance(side, (Tree, Stone)):
+                    side.hit()
+                    if side.destroyed:
+                        x = (side.rect.centerx - ScreenOffSetX) // TILE_SIZE
+                        y = (side.rect.centery - ScreenOffSetY) // TILE_SIZE
+                        worldMap[y][x] = Grass(random.choice(GrassTiles), x, y, ScreenOffSetX, ScreenOffSetY)
                     
                 if isinstance(side, CampFire) and side.justPlaced:
                     if self.inventory[side.material] > 0:
@@ -298,11 +326,11 @@ class Player(WorldObject, Animation):
 
             if event.key == pygame.K_x: # Felvenni valamit pl fa vagy kő (kiütött)
                 if isinstance(side, Tree) and side.tileSheet == woodStuffTile:
-                    side.destroy()
+                    side.cuttDown()
                     player.inventory["wood"] += 1
 
                 if isinstance(side, Stone) and side.tileSheet == stoneStuffTile:
-                    side.destroy()
+                    side.cuttDown()
                     player.inventory["stone"] += 1
 
             if event.key == pygame.K_q: # Támadás
@@ -461,30 +489,37 @@ class Stone(WorldObject):
         super().__init__(tileSheet, posX, posY, offset_x, offset_y)
         self.health = 5
         self.shake = 0
-        self.collide = False
+        self.CutDownStone = False
         self.destroyed = False
 
     def drop(self):
-        self.destroyed = True
+        self.health = 5
         self.tileSheet = stoneStuffTile
+
+    def update(self):
+        self.tileSheet = StoneTile
+        self.health = 5
+        self.shake = 0
+        self.CutDownStone = False
+        self.destroyed = False
+        
+    def plant(self):
+        pass
+
+    def hit(self):
+        self.health -= 1
+        self.shake = 10
+        
+        if self.health <= 0 and not self.CutDownStone:
+            self.drop()
+            self.CutDownStone = True
+
+        elif self.health <= 0 and self.CutDownStone:
+            self.destroyed = True
 
     def draw(self):
         image = pygame.transform.scale(GrassTiles[0],(TILE_SIZE, TILE_SIZE))
         screen.blit(image, self.rect)
-        if self.destroyed:
-            image = pygame.transform.scale(self.tileSheet,(TILE_SIZE, TILE_SIZE))
-            screen.blit(image, self.rect)
-            return
-        if self.health <= 0:
-            self.drop()
-            self.destroyed = True
-            #self.destroy()
-            return
-
-        if self.collide:
-            self.health -= 1
-            self.collide = False
-            self.shake = 10
 
         top = self.tileSheet.subsurface(pygame.Rect(0, 0, 16, 10))
         bottom = self.tileSheet.subsurface(pygame.Rect(0, 10, 16, 6))
@@ -499,10 +534,9 @@ class Stone(WorldObject):
             offset = 0
 
         screen.blit(bottom, (self.rect[0],self.rect[1] + TILE_SIZE // 2))
-
         screen.blit(top, (self.rect[0] + offset,self.rect[1]))
-        
-    def destroy(self):
+
+    def cuttDown(self):
         self.tileSheet = CuttedStoneTile
         
 class Tree(WorldObject):
@@ -511,33 +545,37 @@ class Tree(WorldObject):
         super().__init__(tileSheet, posX, posY, offset_x, offset_y)
         self.health = 5
         self.shake = 0
-        self.collide = False
+        self.CutDownTree = False
         self.destroyed = False
 
     def drop(self):
-        self.destroyed = True
+        self.health = 5
         self.tileSheet = woodStuffTile
 
-    def upgrade(self):
+    def update(self):
+        self.tileSheet = TreeTile
+        self.health = 5
+        self.shake = 0
+        self.CutDownTree = False
+        self.destroyed = False
+        
+    def plant(self):
         pass
+
+    def hit(self):
+        self.health -= 1
+        self.shake = 10
+        
+        if self.health <= 0 and not self.CutDownTree:
+            self.drop()
+            self.CutDownTree = True
+
+        elif self.health <= 0 and self.CutDownTree:
+            self.destroyed = True
 
     def draw(self):
         image = pygame.transform.scale(GrassTiles[0],(TILE_SIZE, TILE_SIZE))
         screen.blit(image, self.rect)
-        if self.destroyed:
-            image = pygame.transform.scale(self.tileSheet,(TILE_SIZE, TILE_SIZE))
-            screen.blit(image, self.rect)
-            return
-        if self.health <= 0:
-            self.drop()
-            self.destroyed = True
-            #self.destroy()
-            return
-
-        if self.collide:
-            self.health -= 1
-            self.collide = False
-            self.shake = 10
 
         top = self.tileSheet.subsurface(pygame.Rect(0, 0, 16, 10))
         bottom = self.tileSheet.subsurface(pygame.Rect(0, 10, 16, 6))
@@ -552,10 +590,9 @@ class Tree(WorldObject):
             offset = 0
 
         screen.blit(bottom, (self.rect[0],self.rect[1] + TILE_SIZE // 2))
-
         screen.blit(top, (self.rect[0] + offset,self.rect[1]))
-        
-    def destroy(self):
+
+    def cuttDown(self):
         self.tileSheet = CuttedTreeTile
 
 class CampFire(WorldObject, Animation, Build):
@@ -748,39 +785,14 @@ while running:
                 running = False
             player.useAbility(event)
 
-    screen.fill((0, 128, 0))
-
     #screen.blit(breakedHeartTile, (0, 0))
     #checkTheCutScene(kepNeve, (1,1))
+    screen.fill((0, 128, 0))
     drawBackground()
+    shade = updateLighting(shade, isNight, screen, nightSurface, worldMap)
     player.move()
-
     if player.moving != -1 or player.isUseAbility != -1:
         player.update()
-
-    if isNight:
-        if shade < 150:
-            shade += 150 / (30 * 60)
-
-        nightSurface.set_alpha(int(shade))
-        screen.blit(nightSurface, (0, 0))
-
-        for row in worldMap:
-            for tile in row:
-                if isinstance(tile, CampFire) and not tile.justPlaced:
-                    tile.illuminate()
-
-    else:
-        if shade > 0:
-            shade -= 150 / (30 * 60)
-
-            nightSurface.set_alpha(int(shade))
-            screen.blit(nightSurface, (0, 0))
-
-            for row in worldMap:
-                for tile in row:
-                    if isinstance(tile, CampFire) and not tile.justPlaced:
-                        tile.illuminate()
 
     player.draw()
     drawUpBar()
@@ -791,5 +803,8 @@ while running:
     if dayTime >= 150:
         isNight = not isNight
         dayTime = 0
+
+        if not isNight:
+            updateObjects()
 
 pygame.quit()
