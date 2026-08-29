@@ -302,6 +302,13 @@ class Player(WorldObject, Animation):
                 #Use sword later or bow
                 pass
 
+            rotation = {
+                0: 0,
+                1: 180,
+                2: 90,
+                3: 270
+            }
+
             x = (self.rect.centerx - ScreenOffSetX) // TILE_SIZE
             y = (self.rect.centery - ScreenOffSetY) // TILE_SIZE
 
@@ -329,7 +336,8 @@ class Player(WorldObject, Animation):
 
             if event.key == pygame.K_3:
                 if isinstance(worldMap[y][x], Grass):
-                    worldMap[y][x] = Tent(TentTile, x, y, ScreenOffSetX, ScreenOffSetY)
+                    rotated_image = pygame.transform.rotate(TentTile, rotation[self.direction])
+                    worldMap[y][x] = Tent(rotated_image, x, y, ScreenOffSetX, ScreenOffSetY)
                 
                 elif isinstance(worldMap[y][x], Tent):
                     worldMap[y][x] = Grass(random.choice(GrassTiles), x, y, ScreenOffSetX, ScreenOffSetY)
