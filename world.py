@@ -30,6 +30,8 @@ difficulties = {
     "Hard": {"target": 8, "current": 0}
 }
 
+EnemyList = []
+
 
 TILE_SIZE = 32
 CUT_SIZE = 16
@@ -86,7 +88,7 @@ def generateEnemy():
         else:
             x, y = random.randint(0, width // TILE_SIZE - 1), height // TILE_SIZE - 1
         if isinstance(worldMap[y][x], Grass):
-            worldMap[y][x] = Enemy(EnemySheets, x, y, ScreenOffSetX, ScreenOffSetY)
+            EnemyList.append(Enemy(EnemySheets, x, y, ScreenOffSetX, ScreenOffSetY))
             difficulties[gameMode]["current"] += 1
 
 def cutScene(start, rowCol):
@@ -125,9 +127,6 @@ def checkTheCutScene(lista, rowCol):
 def drawBackground(startX = 0, startY = 0, height = height // TILE_SIZE, width = width // TILE_SIZE):
     for y in range(startY, height):
         for x in range(startX, width):
-            if isinstance(worldMap[y][x], Enemy):
-                worldMap[y][x].draw()
-                
             if isinstance(worldMap[y][x], Grass):
                 worldMap[y][x].draw()
 
@@ -489,6 +488,9 @@ class Enemy(WorldObject, Animation):
         Animation.__init__(self)
         self.directions = ["up", "down", "left", "right"]
         self.pathToPlayer = []
+        self.speed = 1
+        self.steps = 0
+        self.direction = None
 
     def move(self, direction):
         if direction == "up":
@@ -500,16 +502,71 @@ class Enemy(WorldObject, Animation):
         else:
             self.rect.x += self.speed
 
+        if player.rect.colliderect(self.rect):
+            self.attack()
+
     def findPlayer(self):
-        if self.distance() <= 8:
-            path = self.PathToPlayer()
-            if path:
-                self.move(path[0])
-        else:
-            self.move(random.choice(self.directions))
+        if self.steps == 0:
+
+            if self.distance() <= 8:
+                if not self.pathToPlayer:
+                    self.pathToPlayer = self.PathToPlayer()
+
+                if self.pathToPlayer:
+                    direction = self.pathToPlayer[0]
+
+                    if self.canMove(direction):
+                        self.direction = self.pathToPlayer.pop(0)
+                    else:
+                        self.pathToPlayer = []
+                        self.direction = None
+
+            else:
+                possibleDirections = self.inIntervalMap()
+
+                if possibleDirections:
+                    self.direction = random.choice(possibleDirections)
+
+        if self.direction:
+            self.move(self.direction)
+            self.steps += self.speed
+
+            if self.steps >= TILE_SIZE:
+                self.steps = 0
+
+    def inIntervalMap(self):
+        directions = []
+
+        for direction in self.directions:
+            if self.canMove(direction):
+                directions.append(direction)
+
+        return directions
+
+    def canMove(self, direction):
+        x = (self.rect.centerx - ScreenOffSetX) // TILE_SIZE
+        y = (self.rect.centery - ScreenOffSetY) // TILE_SIZE
+
+        # Jelenlegi tile
+        if not isinstance(worldMap[y][x], (Grass, Bridge)):
+            return False
+
+        if direction == "up":
+            y -= 1
+        elif direction == "down":
+            y += 1
+        elif direction == "left":
+            x -= 1
+        elif direction == "right":
+            x += 1
+
+        if not (0 <= x < len(worldMap[0]) and 0 <= y < len(worldMap)):
+            return False
+
+        return isinstance(worldMap[y][x], (Grass, Bridge))
 
     def distance(self):
-        return (abs(self.rect.x - player.rect.x) +abs(self.rect.y - player.rect.y)) // TILE_SIZE
+        return (abs(self.rect.x - player.rect.x) + abs(self.rect.y - player.rect.y)) // TILE_SIZE
 
     def PathToPlayer(self):
         path = {}
@@ -542,32 +599,40 @@ class Enemy(WorldObject, Animation):
             """if playerCopy.colliderect(pygame.Rect(x * TILE_SIZE + offset_x,
             y * TILE_SIZE + offset_y,TILE_SIZE,TILE_SIZE):
                 return reversePath(path)"""
-            if (x,y) not in visited:
-                visited.append((x,y))
-                path[(x, y)] = (direction[0], direction[1])
-                for i in self.directions:
-                    if i != opposite[direction[1]]:
-                        whereCanGo.append(((x, y), i))
-                        if player_coord == (x,y):
-                            return reversePath(path)
+            if (x, y) not in visited:
+                if 0 <= x < len(worldMap[0]) and 0 <= y < len(worldMap):
+                    if isinstance(worldMap[y][x], (Grass, Bridge)):
+                        visited.append((x, y))
+                        path[(x, y)] = (direction[0], direction[1])
+
+                        if player_coord == (x, y):
+                            return self.reversePath(path)
+
+                        for i in self.directions:
+                            if i != opposite[direction[1]]:
+                                whereCanGo.append(((x, y), i))
 
     def reversePath(self, path):
-        coords = []
+        directions = []
         current = (player.rect.x//TILE_SIZE, player.rect.y//TILE_SIZE)
 
         while current != (self.rect.x // TILE_SIZE,self.rect.y // TILE_SIZE):
-            coords.append(current)
-            current = path[current]
+            previous, direction = path[current]
+            directions.append(direction)
+            current = previous
 
-        coords.reverse()
-        return coords
+        directions.reverse()
+        return directions
 
     def attack(self):
-        pass
+        print("TÁMADOM PLAYER-T")
 
     def draw(self):
+        """grass = self.rect.copy()
+        grass.x = (self.rect.x // TILE_SIZE) * TILE_SIZE
+        grass.y = (self.rect.y // TILE_SIZE) * TILE_SIZE
         image = pygame.transform.scale(GrassTiles[0],(TILE_SIZE, TILE_SIZE))
-        screen.blit(image, self.rect)
+        screen.blit(image, grass)"""
         #current_frame = self.get_frame(self.tileSheet)
 
         #image = pygame.transform.scale(self.tileSheet[current_frame],(TILE_SIZE, TILE_SIZE))
@@ -936,6 +1001,9 @@ while running:
         player.update()
 
     player.draw()
+    for enemy in EnemyList:
+        enemy.findPlayer()
+        enemy.draw()
     drawUpBar()
     drawDownBar()
     pygame.display.flip()
