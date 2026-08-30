@@ -1,5 +1,6 @@
 import pygame
 import random
+from collections import deque
 
 pygame.init()
 pygame.font.init()
@@ -19,6 +20,16 @@ shade = 0
 nightSurface = pygame.Surface((width, height))
 nightSurface.fill((0, 0, 0))
 small_font = pygame.font.Font(None, 20)
+
+gameMode = "Easy"
+
+difficulties = {
+    "Peaceful": {"target": 0, "current": 0},
+    "Easy": {"target": 1, "current": 0},
+    "Normal": {"target": 3, "current": 0},
+    "Hard": {"target": 8, "current": 0}
+}
+
 
 TILE_SIZE = 32
 CUT_SIZE = 16
@@ -60,6 +71,24 @@ def generateMap():
                 else:
                     worldMap[y][x] = Grass(random.choice(GrassTiles), x, y, ScreenOffSetX, ScreenOffSetY)
 
+def generateEnemy():
+    while difficulties[gameMode]["current"] < difficulties[gameMode]["target"]:
+        side = random.choice(["left", "right", "top", "bottom"])
+        if side == "left":
+            x, y = 0, random.randint(0, height // TILE_SIZE - 1)
+
+        elif side == "right":
+            x, y = width // TILE_SIZE - 1, random.randint(0, height // TILE_SIZE - 1)
+
+        elif side == "top":
+            x, y = random.randint(0, width // TILE_SIZE - 1), 0
+
+        else:
+            x, y = random.randint(0, width // TILE_SIZE - 1), height // TILE_SIZE - 1
+        if isinstance(worldMap[y][x], Grass):
+            worldMap[y][x] = Enemy(EnemySheets, x, y, ScreenOffSetX, ScreenOffSetY)
+            difficulties[gameMode]["current"] += 1
+
 def cutScene(start, rowCol):
     lista = []
     width = rowCol[0] * 16
@@ -96,6 +125,9 @@ def checkTheCutScene(lista, rowCol):
 def drawBackground(startX = 0, startY = 0, height = height // TILE_SIZE, width = width // TILE_SIZE):
     for y in range(startY, height):
         for x in range(startX, width):
+            if isinstance(worldMap[y][x], Enemy):
+                worldMap[y][x].draw()
+                
             if isinstance(worldMap[y][x], Grass):
                 worldMap[y][x].draw()
 
@@ -452,20 +484,95 @@ class Player(WorldObject, Animation):
         screen.blit(image, self.rect)
 
 class Enemy(WorldObject, Animation):
-    def __init___(self):
-        pass
+    def __init__(self, tileSheet, posX, posY, offset_x=0, offset_y=0):
+        WorldObject.__init__(self, tileSheet, posX, posY, offset_x, offset_y)
+        Animation.__init__(self)
+        self.directions = ["up", "down", "left", "right"]
+        self.pathToPlayer = []
 
-    def move(self):
-        pass
+    def move(self, direction):
+        if direction == "up":
+            self.rect.y -= self.speed
+        elif direction == "down":
+            self.rect.y += self.speed
+        elif direction == "left":
+            self.rect.x -= self.speed
+        else:
+            self.rect.x += self.speed
 
     def findPlayer(self):
-        pass
+        if self.distance() <= 8:
+            path = self.PathToPlayer()
+            if path:
+                self.move(path[0])
+        else:
+            self.move(random.choice(self.directions))
+
+    def distance(self):
+        return (abs(self.rect.x - player.rect.x) +abs(self.rect.y - player.rect.y)) // TILE_SIZE
+
+    def PathToPlayer(self):
+        path = {}
+        whereCanGo = deque()
+        enemy_coord = (self.rect.x // TILE_SIZE,self.rect.y // TILE_SIZE)
+        player_coord = (player.rect.x // TILE_SIZE,player.rect.y // TILE_SIZE)
+        for i in self.directions:
+            whereCanGo.append((enemy_coord, i))
+        visited = []
+        opposite = {
+            "up" : "down",
+            "down": "up",
+            "left": "right",
+            "right": "left"
+        }
+
+        while whereCanGo:
+            direction = whereCanGo.popleft()
+            x, y = direction[0][0], direction[0][1]
+
+            if direction[1] == "up":
+                y -= 1
+            elif direction[1] == "down":
+                y += 1
+            elif direction[1] == "left":
+                x -= 1
+            else:
+                x += 1
+
+            """if playerCopy.colliderect(pygame.Rect(x * TILE_SIZE + offset_x,
+            y * TILE_SIZE + offset_y,TILE_SIZE,TILE_SIZE):
+                return reversePath(path)"""
+            if (x,y) not in visited:
+                visited.append((x,y))
+                path[(x, y)] = (direction[0], direction[1])
+                for i in self.directions:
+                    if i != opposite[direction[1]]:
+                        whereCanGo.append(((x, y), i))
+                        if player_coord == (x,y):
+                            return reversePath(path)
+
+    def reversePath(self, path):
+        coords = []
+        current = (player.rect.x//TILE_SIZE, player.rect.y//TILE_SIZE)
+
+        while current != (self.rect.x // TILE_SIZE,self.rect.y // TILE_SIZE):
+            coords.append(current)
+            current = path[current]
+
+        coords.reverse()
+        return coords
 
     def attack(self):
         pass
 
     def draw(self):
-        pass
+        image = pygame.transform.scale(GrassTiles[0],(TILE_SIZE, TILE_SIZE))
+        screen.blit(image, self.rect)
+        #current_frame = self.get_frame(self.tileSheet)
+
+        #image = pygame.transform.scale(self.tileSheet[current_frame],(TILE_SIZE, TILE_SIZE))
+        image = pygame.transform.scale(self.tileSheet[0][0][0],(TILE_SIZE, TILE_SIZE))
+        screen.blit(image, self.rect)
 
 class Grass(WorldObject):
     #Lehetne egy onGrass, hogy mi van rajta, és a drawban ha az nem None
@@ -557,6 +664,7 @@ class Stone(WorldObject):
         
 class Tree(WorldObject):
     #Később a rönköt is kilehessen ütni + kell DROP IS!
+    #Uj feature lehessen ültetni fát
     def __init__(self, tileSheet, posX, posY, offset_x=0, offset_y=0):
         super().__init__(tileSheet, posX, posY, offset_x, offset_y)
         self.health = 5
@@ -819,6 +927,8 @@ while running:
     screen.fill((0, 128, 0))
     #screen.blit(breakedHeartTile, (0, 0))
     #checkTheCutScene(EnemyAttackLeft, (3,1))
+    isNight = False
+    dayTime = 150
     drawBackground()
     shade = updateLighting(shade, isNight, screen, nightSurface, worldMap)
     player.move()
@@ -837,6 +947,8 @@ while running:
 
         if not isNight:
             updateObjects()
+        else:
+            generateEnemy()
     #pygame.display.flip()
 
 pygame.quit()
