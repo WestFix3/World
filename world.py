@@ -451,6 +451,22 @@ class Player(WorldObject, Animation):
         image = frames[current_frame]
         screen.blit(image, self.rect)
 
+class Enemy(WorldObject, Animation):
+    def __init___(self):
+        pass
+
+    def move(self):
+        pass
+
+    def findPlayer(self):
+        pass
+
+    def attack(self):
+        pass
+
+    def draw(self):
+        pass
+
 class Grass(WorldObject):
     #Lehetne egy onGrass, hogy mi van rajta, és a drawban ha az nem None
     #   akkor meghivjuk a Draw-ot arra ami a Grassen van (Optimalizáció)
@@ -672,6 +688,7 @@ class Tent(WorldObject, Build):
 
 tilesheet = pygame.image.load("punyworld-overworld-tileset.png").convert_alpha()
 ArcherTileSheet = pygame.image.load("Archer-Green.png").convert_alpha()
+EnemyTileSheet = pygame.image.load("Soldier-Yellow.png").convert_alpha()
 StuffTileSheet = pygame.image.load("Stuff.png").convert_alpha()
 rawCampFire = pygame.image.load("campFire.png").convert_alpha()
 heartTileSheet = pygame.image.load("heart.png").convert_alpha()
@@ -768,6 +785,20 @@ ArcherGo = [ArcherGoUp, ArcherGoDown, ArcherGoLeft, ArcherGoRight]
 ArcherAxe = [ArcherAxeUp, ArcherAxeDown, ArcherAxeLeft, ArcherAxeRight]
 ArcherSheets = [ArcherGo, ArcherAxe]
 
+EnemyGoDown = cutCharacter(EnemyTileSheet, (0,0), 4)
+EnemyGoRight = cutCharacter(EnemyTileSheet, (0,2), 4)
+EnemyGoUp = cutCharacter(EnemyTileSheet, (0,4), 4)
+EnemyGoLeft = cutCharacter(EnemyTileSheet, (0,6), 4)
+
+EnemyAttackDown = cutCharacter(EnemyTileSheet, (4,0), 4)
+EnemyAttackRight = cutCharacter(EnemyTileSheet, (4,2), 4)
+EnemyAttackUp = cutCharacter(EnemyTileSheet, (4,4), 4)
+EnemyAttackLeft = cutCharacter(EnemyTileSheet, (4,6), 4)
+
+EnemyGo = [EnemyGoUp, EnemyGoDown, EnemyGoLeft, EnemyGoRight]
+EnemyAttack = [EnemyAttackUp, EnemyAttackDown, EnemyAttackLeft, EnemyAttackRight]
+EnemySheets = [EnemyGo, EnemyAttack]
+
 generateRiver()
 generateMap()
 
@@ -785,9 +816,9 @@ while running:
                 running = False
             player.useAbility(event)
 
-    #screen.blit(breakedHeartTile, (0, 0))
-    #checkTheCutScene(kepNeve, (1,1))
     screen.fill((0, 128, 0))
+    #screen.blit(breakedHeartTile, (0, 0))
+    #checkTheCutScene(EnemyAttackLeft, (3,1))
     drawBackground()
     shade = updateLighting(shade, isNight, screen, nightSurface, worldMap)
     player.move()
@@ -806,5 +837,6 @@ while running:
 
         if not isNight:
             updateObjects()
+    #pygame.display.flip()
 
 pygame.quit()
